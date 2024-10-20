@@ -1,5 +1,5 @@
-tk
-cv2
+tkinter
+opencv-python
 playsound
-serial
+pyserial
 pillow

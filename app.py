@@ -8,17 +8,21 @@ from util import Netra
 import serial
 import time
 from util import kosongin
+import queue
 
 class TabunganAppUI:
     def __init__(self):
+        self.screenText=""
+        self.screenTextTabungan=""
         self.isUserActive = False
         self.cameraResult = None
-        self.cap = cv2.VideoCapture(1)
+        self.cap = cv2.VideoCapture(0)
         self.root = tk.Tk()
         self.camera_label = Label(self.root)
         self.camera_label.pack()
-        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280/2)
-        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720/2)
+        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1000)
+        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 600)
+        self.result_queue = queue.Queue()
 
     def greet(self):
         threading.Thread(target=lambda: playsound("audio/greet.mp3"), daemon=True).start()
@@ -29,30 +33,70 @@ class TabunganAppUI:
         threading.Thread(target=lambda: playsound("audio/greet.mp3"), daemon=True).start()
 
     def capture(self):
+        def run_scan(frame):
+            result = Netra.scan(frame)
+            self.result_queue.put({
+                "id":"deteksi",
+                "result":result
+            })
+            self.process_result()
         ret, frame = self.cap.read()
         if ret:
-            threading.Thread(target=lambda: Netra.scan(frame), daemon=True).start()
+            threading.Thread(target=run_scan, args=(frame,), daemon=True).start()
+
+    def captureTabung(self):
+        res = Netra.tabung()
+        self.result_queue.put({
+            "id":'tabung',
+            "result":f"Tabungan {res[0]} = Rp{res[1]}"
+        })
+        self.process_result()
+
+    def process_result(self):
+        if not self.result_queue.empty():
+            result = self.result_queue.get()
+            print(result)
+            if result["id"]=="tabung":
+                self.screenTextTabungan=result["result"]
+            else:
+                self.screenText=result["result"]
 
     def constructButton(self):
         button_frame = tk.Frame(self.root)
         button_frame.pack(pady=20)
 
-        btn_capture = tk.Button(button_frame, text="Deteksi Uang", command=self.capture)
-        btn_capture.pack(side=tk.LEFT, padx=10, pady=10)
-
-        btn_tabungan = tk.Button(button_frame, text="Menabung Uang", command=Netra.tabung)
-        btn_tabungan.pack(side=tk.LEFT, padx=10, pady=10)
+        reset = tk.Button(button_frame, text="Reset", command=self.reset)
+        reset.pack(side=tk.LEFT, padx=10, pady=10)
 
         btn_laporan = tk.Button(button_frame, text="Laporan Uang", command=Netra.laporan)
         btn_laporan.pack(side=tk.LEFT, padx=10, pady=10)
 
-        reset = tk.Button(button_frame, text="Reset", command=self.reset)
-        reset.pack(side=tk.LEFT, padx=10, pady=10)
+        btn_tabungan = tk.Button(button_frame, text="Menabung Uang", command=self.captureTabung)
+        btn_tabungan.pack(side=tk.LEFT, padx=10, pady=10)
+
+        btn_capture = tk.Button(button_frame, text="Deteksi Uang", command=self.capture)
+        btn_capture.pack(side=tk.LEFT, padx=10, pady=10)
 
     def show_camera(self):
         ret, frame = self.cap.read()
         if ret:
             cv2image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            text = self.screenText
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            font_scale = 1
+            color = (255, 0, 0)
+            thickness = 2
+            position = (10, 30)
+            cv2.putText(cv2image, text, position, font, font_scale, color, thickness, cv2.LINE_AA)
+            # font second
+            text = self.screenTextTabungan
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            font_scale = 0.8
+            color = (255, 0, 0)
+            thickness = 2
+            position = (10, 60)
+            cv2.putText(cv2image, text, position, font, font_scale, color, thickness, cv2.LINE_AA)
+
             img = Image.fromarray(cv2image)
             imgtk = ImageTk.PhotoImage(image=img)
             self.camera_label.imgtk = imgtk
@@ -85,10 +129,11 @@ class TabunganAppUI:
         threading.Thread(target=listen_serial, daemon=True).start()
 
 # Initialize the app
-kosongin.empty_folder("D:/program/program/netra/captured_images")
-kosongin.empty_folder("D:/program/program/netra/audio/temp")
+kosongin.empty_folder("captured_images")
+kosongin.empty_folder("audio/temp")
 print("INITIALIZE APP")
 Sistem = TabunganAppUI()
+Sistem.root.title("TABITA SYSTEM")
 Sistem.start_serial_listener()
 print("TKINTER RUNNING")
 Sistem.root.mainloop()
