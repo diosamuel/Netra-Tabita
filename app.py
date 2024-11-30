@@ -25,6 +25,7 @@ class TabunganAppUI:
         self.result_queue = queue.Queue()
 
     def greet(self):
+        time.sleep(2)
         threading.Thread(target=lambda: playsound("audio/greet.mp3"), daemon=True).start()
 
     def reset(self):
@@ -119,13 +120,14 @@ class TabunganAppUI:
                         Netra.tabung()
                     elif serialText == "btn.3":
                         Netra.laporan()
+                    elif serialText=="btn.4":
+                        self.reset()
                     elif serialText=="jarak.1" and not self.isUserActive:
                         print("User Terdeteksi, Open App")
                         self.isUserActive=True
                         self.greet()
                         self.show_camera()
                         self.constructButton()
-
         threading.Thread(target=listen_serial, daemon=True).start()
 
 # Initialize the app

@@ -1,2 +1,3 @@
 /captured_images/img*
-/temp/audio*
+/audio/temp/audio_*
+*.pyc
